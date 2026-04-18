@@ -45,8 +45,12 @@
                     <form id="addForm">
                         <input name="name" class="form-control mb-2" placeholder="Name" required>
                         <input name="address" class="form-control mb-2" placeholder="Address">
-                        <input name="phone" class="form-control mb-2" placeholder="Phone">
-                        <input name="email" class="form-control mb-2" placeholder="Email">
+                        <input name="phone" id="phone" class="form-control mb-2" placeholder="Phone">
+                        <small id="phoneError" class="text-danger"></small>
+                        <input name="email" id="email" class="form-control mb-2" placeholder="Email">
+                        <small id="emailError" class="text-danger"></small>
+
+                        <small id="commonError" class="text-danger"></small> <br>
                         <button class="btn btn-success">Save</button>
                     </form>
                 </div>
@@ -92,28 +96,33 @@
                         <div id="userRating"></div>
                         <input type="hidden" name="rating" id="rating_value">
                         <div id="ratingSummary" class="mt-3"></div>
-                         <div class="mt-3 text-right">
-                       
-                        <button type="submit" class="btn btn-success">
-                            Submit Rating
-                        </button>
-                         <button type="button" class="btn btn-secondary" data-dismiss="modal">
-                            Close
-                        </button>
+                        <div class="mt-3 text-right">
+
+                            <button type="submit" class="btn btn-success">
+                                Submit Rating
+                            </button>
+                            <button type="button" class="btn btn-secondary" data-dismiss="modal">
+                                Close
+                            </button>
                     </form>
                 </div>
             </div>
         </div>
     </div>
+    <style>
+        .error-border {
+            border: 1px solid red !important;
+        }
+    </style>
 
     <script>
         function loadBusinesses() {
             $.get('ajax/get_business.php', function (data) {
                 $('#businessData').html(data);
 
-                 if ($(this).data('raty')) {
-                $(this).raty('destroy');
-            }
+                if ($(this).data('raty')) {
+                    $(this).raty('destroy');
+                }
 
                 $('.avg-rating').raty({
                     readOnly: true,
@@ -127,10 +136,78 @@
         loadBusinesses();
 
         /* ADD */
+        // helper functions
+        function isValidEmail(email) {
+            return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+        }
+
+        function isValidPhone(phone) {
+            return /^[6-9]\d{9}$/.test(phone);
+        }
+
+        // restrict phone input
+        $('#phone').on('input', function () {
+            this.value = this.value.replace(/[^0-9]/g, '').slice(0, 10);
+        });
+
         $('#addForm').submit(function (e) {
             e.preventDefault();
-            $.post('ajax/add_business.php', $(this).serialize(), function () {
+
+            let phone = $('#phone').val().trim();
+            let email = $('#email').val().trim();
+
+            let isValid = true;
+
+            // clear old errors
+            $('#phoneError').text('');
+            $('#emailError').text('');
+            $('#commonError').text('');
+            $('#phone').removeClass('error-border');
+            $('#email').removeClass('error-border');
+
+            // at least one required
+            if (phone === '' && email === '') {
+                $('#commonError').text('Either Phone or Email is required');
+                isValid = false;
+            }
+            // phone required
+            if (phone === '') {
+                $('#phoneError').text('Phone is required');
+                $('#phone').addClass('error-border');
+                isValid = false;
+            }
+
+            // email required
+            if (email === '') {
+                $('#emailError').text('Email is required');
+                $('#email').addClass('error-border');
+                isValid = false;
+            }
+
+            // phone validation
+            if (phone !== '' && !isValidPhone(phone)) {
+                $('#phoneError').text('Enter valid 10-digit phone number');
+                $('#phone').addClass('error-border');
+                isValid = false;
+            }
+
+            // email validation
+            if (email !== '' && !isValidEmail(email)) {
+                $('#emailError').text('Enter valid email address');
+                $('#email').addClass('error-border');
+                isValid = false;
+            }
+
+            if (!isValid) return;
+            $.post('ajax/add_business.php', $(this).serialize(), function (res) {
+
+                if (res === "duplicate") {
+                    $('#commonError').text('Phone or Email already exists');
+                    return;
+                }
+
                 $('#addModal').modal('hide');
+                $('#addForm')[0].reset();
                 loadBusinesses();
             });
         });
@@ -158,7 +235,7 @@
 
         /* DELETE */
         function deleteBusiness(id) {
-            if (confirm('Delete?')) {
+            if (confirm('Are you sure you want to delete?')) {
                 $.post('ajax/delete_business.php', { id: id }, function () {
                     loadBusinesses();
                 });
